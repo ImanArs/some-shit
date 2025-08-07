@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FPS Stress Test</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #111;
+      font-family: sans-serif;
+      color: white;
+    }
+
+    #controls {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      padding: 6px 12px;
+      border: none;
+      background: #333;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #fps-indicator {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 9999;
+      width: 120px;
+    }
+    #blob-counter {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-family: monospace;
+      font-size: 14px;
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 9999;
+      width: 120px;
+    }
+
+    #fps-value {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .green { color: lime; }
+    .yellow { color: gold; }
+    .red { color: orangered; }
+
+    #fps-graph {
+      display: flex;
+      align-items: flex-end;
+      height: 40px;
+      margin-top: 6px;
+      gap: 1px;
+    }
+
+    .bar {
+      width: 2px;
+      background: lime;
+      transition: height 0.2s, background 0.2s;
+    }
+
+    .blob {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background: lime;
+      border-radius: 50%;
+      transition: all 0.6s ease;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="fps-indicator">
+    FPS: <span id="fps-value">--</span>
+    <div id="fps-graph"></div>
+  </div>
+
+  <div id="blob-counter">
+    0 blobs
+  </div>
+
+  <div id="controls">
+    <button id="add-btn">Добавить 10</button>
+    <button id="end-btn">Завершить</button>
+  </div>
+
+  <script>
+    const fpsValue = document.getElementById('fps-value');
+    const fpsGraph = document.getElementById('fps-graph');
+    const blobCounter = document.querySelector('#blob-counter') 
+    const addBtn = document.getElementById('add-btn');
+    const endBtn = document.getElementById('end-btn');
+    const maxBars = 50;
+    const bars = [];
+    const blobs = [];
+
+    let frames = 0;
+    let lastTime = performance.now();
+    let fps = 0;
+    let fpsHistory = [];
+    let sessionActive = true;
+
+    for (let i = 0; i < maxBars; i++) {
+      const bar = document.createElement('div');
+      bar.classList.add('bar');
+      fpsGraph.appendChild(bar);
+      bars.push(bar);
+    }
+
+    function update(time) {
+      if (!sessionActive) return;
+
+      frames++;
+      const delta = time - lastTime;
+
+      if (delta >= 1000) {
+        fps = Math.round((frames * 1000) / delta);
+        fpsHistory.push(fps);
+        updateDisplay(fps);
+        frames = 0;
+        lastTime = time;
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    function updateDisplay(fps) {
+      fpsValue.textContent = fps;
+      fpsValue.className = '';
+      if (fps >= 50) fpsValue.classList.add('green');
+      else if (fps >= 30) fpsValue.classList.add('yellow');
+      else fpsValue.classList.add('red');
+
+      const height = Math.min(40, fps * 0.6);
+      const color = fps >= 50 ? 'lime' : fps >= 30 ? 'gold' : 'orangered';
+
+      bars.push(bars.shift());
+      fpsGraph.appendChild(bars[bars.length - 1]);
+
+      const bar = bars[bars.length - 1];
+      bar.style.height = `${height}px`;
+      bar.style.background = color;
+    }
+
+    function createBlob() {
+      const blob = document.createElement('div');
+      blob.className = 'blob';
+      document.body.appendChild(blob);
+      blobs.push(blob);
+      animateBlob(blob);
+      blobCounter.textContent = `${blobs.length} blobs`;
+    }
+
+    function animateBlob(blob) {
+      const x = Math.random() * (window.innerWidth - 30);
+      const y = Math.random() * (window.innerHeight - 30);
+      const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+      const radius = Math.random() > 0.5 ? '50%' : '0%';
+      const size = Math.floor(20 + Math.random() * 60);
+
+      blob.style.transform = `translate(${x}px, ${y}px)`;
+      blob.style.background = color;
+      blob.style.borderRadius = radius;
+      blob.style.width = `${size}px`;
+      blob.style.height = `${size}px`;
+
+      if (sessionActive) {
+        setTimeout(() => animateBlob(blob), 600);
+      }
+    }
+
+    addBtn.addEventListener('click', () => {
+      for (let i = 0; i < 10; i++) createBlob();
+    });
+
+    endBtn.addEventListener('click', () => {
+      sessionActive = false;
+      fpsValue.textContent = '--';
+
+      const avgFps = Math.round(
+        fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length || 0
+      );
+
+      alert(`Тест завершён!\n\nМаксимум элементов: ${blobs.length}\nСредний FPS: ${avgFps}`);
+
+      blobs.forEach(blob => blob.remove());
+    });
+
+    requestAnimationFrame(update);
+  </script>
+
+</body>
+</html>

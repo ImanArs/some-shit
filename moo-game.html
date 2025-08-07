@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Frequency Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      color: white;
+      font-family: monospace;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    async function start() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048; // 32, 64, 128, 256, 512, 1024, 2048 - степень двойки
+
+      source.connect(analyser);
+
+      const canvas = document.getElementById('canvas');
+      const c = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        requestAnimationFrame(draw);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        c.fillStyle = '#000';
+        c.fillRect(0, 0, canvas.width, canvas.height);
+
+        const barWidth = (canvas.width / bufferLength) * 2.5;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = dataArray[i];
+          const hue = i / bufferLength * 360;
+
+          c.fillStyle = `hsl(${hue}, 100%, 50%)`;
+          c.fillRect(x, canvas.height - barHeight * 2, barWidth, barHeight * 2);
+          x += barWidth + 1;
+        }
+
+        // анализ тональности (среднее по низким и высоким)
+        const lowAvg = average(dataArray.slice(0, 10));
+        const highAvg = average(dataArray.slice(-1));
+
+        c.fillStyle = 'white';
+        c.font = '20px monospace';
+        c.fillText(`Low: ${Math.round(lowAvg)} | High: ${Math.round(highAvg)}`, 10, 30);
+      }
+
+      function average(arr) {
+        return arr.reduce((sum, v) => sum + v, 0) / arr.length;
+      }
+
+      draw();
+    }
+
+    start().catch(err => {
+      alert('Ошибка доступа к микрофону');
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
